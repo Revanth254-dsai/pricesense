@@ -72,7 +72,7 @@ def cmd_eval(args) -> None:
     settings = _settings(args)
     adapter = None if args.base else (args.adapter or settings.adapter_repo)
 
-    model = PriceSense(settings.data.base_model, adapter, weighted=args.weighted)
+    model = PriceSense(settings.data.base_model, adapter)
     score(model, read_jsonl("test"), args.label or model.name, n=args.n)
 
 
@@ -98,7 +98,7 @@ def cmd_price(args) -> None:
 
         settings = _settings(args)
         adapter = None if args.base else (args.adapter or settings.adapter_repo)
-        model = PriceSense(settings.data.base_model, adapter, weighted=args.weighted)
+        model = PriceSense(settings.data.base_model, adapter)
 
     print(f"\n  {model.name} estimates ${model(prompt):,.2f}\n")
 
@@ -139,7 +139,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--base", action="store_true", help="score the untuned base model")
     p.add_argument("--base-model", dest="base_model")
     p.add_argument("--label", help="name for the leaderboard")
-    p.add_argument("--weighted", action="store_true", help="probability-weighted decoding")
     p.add_argument("-n", type=int, default=200)
     p.set_defaults(func=cmd_eval, source=None)
 
@@ -153,7 +152,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--base", action="store_true")
     p.add_argument("--base-model", dest="base_model")
     p.add_argument("--ollama", metavar="MODEL", help="use an Ollama model instead")
-    p.add_argument("--weighted", action="store_true")
     p.set_defaults(func=cmd_price, source=None)
 
     args = parser.parse_args(argv)

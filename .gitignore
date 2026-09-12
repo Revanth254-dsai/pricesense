@@ -5,6 +5,7 @@ __pycache__/
 data/*.jsonl
 results/*.json
 results/*.html
+!results/leaderboard.png
 checkpoints/
 wandb/
 .ipynb_checkpoints/
