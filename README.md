@@ -6,6 +6,8 @@ Qwen 2.5 fine-tuned with QLoRA.
 A generalist model has to be good at everything. A 0.5B open model, tuned on one
 narrow task, only has to be good at this. That trade is the experiment.
 
+![Leaderboard](results/leaderboard.png)
+
 ## Result
 
 Fine-tuning cut mean absolute error by **63%** — from $221.90 to $81.95 — using a
@@ -71,8 +73,8 @@ projections. Roughly 1% of parameters are updated.
 
 The scorer takes any `Callable[[str], float]`, so a constant baseline, a linear
 regression, an Ollama HTTP call and a quantised local transformer all go through
-identical evaluation code. Scorecards persist to `results/*.json` and the
-leaderboard assembles itself from whatever is there.
+identical evaluation code. Scorecards persist to `results/*.json` — including every
+individual prediction — and the leaderboard assembles itself from whatever is there.
 
 Everything runs on a laptop except training, which needs CUDA. `train.py` is a CLI
 command rather than a notebook precisely so it runs unmodified on Colab, a
@@ -135,18 +137,25 @@ The token cutoff is tokenizer-specific. Changing the base model means re-running
 
 ## What the model gets wrong
 
-The base model's failures are unbounded and upward: **$1,999 for a stick of RAM
-that costs $124**, $1,299 for a $76 shower faucet. It has one idea — "technical
-product, four digits."
+The base model fails in **both** directions. It under-predicts 64% of items, yet
+its mean signed error is **+$73** — a handful of enormous overshoots ($1,999 for a
+$124 RAM stick, $1,299 for a $76 shower faucet) outweigh sixty small undershoots.
+On a cordless drill worth roughly $200 it guessed $19.99. It has no stable sense of
+price at all, which is what an r² of -683% means.
 
-After fine-tuning the errors invert. The model now under-predicts expensive items:
-$199 for an $819 DSLR bundle, $150 for a $713 violin, $110 for a $475 faucet. It
-learned that most items in this catalogue are cheap and regresses toward that.
+Fine-tuning removed the overshoots. The mean signed error flips to **-$59** while
+the under-prediction rate barely moves (64% → 66%). Training did not create a
+downward bias — it eliminated the catastrophic tail, exposing a lean that was
+always there.
 
-This is a healthier failure mode — bounded rather than catastrophic — and it is the
-expected signature of training on a right-skewed target with a symmetric loss. It
-is also the clearest direction for improvement: the model needs a reason to risk a
-large estimate.
+Rescaling every prediction by a fitted constant recovers only **$4.45** of that
+$59 (best multiplier 1.35x, MAE $81.95 → $77.50). So the bias is not a uniform
+offset: scaling up fixes the expensive items the model is low on and breaks the
+cheap ones it already had right. The two roughly cancel.
+
+That negative result is what rules out the cheap fix. The error scales with price
+rather than being constant, which points at the loss function rather than the
+predictions.
 
 ## Honest limitations
 
@@ -166,7 +175,11 @@ large estimate.
 
 ## Next
 
-- Fine-tune Llama 3.2 1B for a genuinely controlled comparison against its own
-  zero-shot number ($122.68).
-- Weighted or log-space loss to address the under-prediction on expensive items.
-- Second epoch — loss plateaued but showed no overfitting.
+- **Train on log-prices.** The residual error scales with price rather than being
+  constant, which is why a scalar correction recovers so little. Optimising
+  `log(price)` targets relative error — the quantity that actually matters, since
+  being $50 off on a $60 item is a failure and $50 off on a $600 item is not.
+  Cross-entropy over digit tokens currently treats both identically.
+- **Fine-tune Llama 3.2 1B** for a genuinely controlled comparison against its own
+  zero-shot number ($122.68). Requires re-running `prepare` with Llama's tokenizer.
+- **Second epoch.** Loss plateaued but showed no sign of overfitting.

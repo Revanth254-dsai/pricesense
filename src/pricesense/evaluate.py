@@ -51,6 +51,7 @@ class Scorecard:
     hit_rate: float
     ran_at: str
     worst: list[dict] = field(default_factory=list)
+    records: list[dict] = field(default_factory=list)
 
     def show(self) -> None:
         print(f"\n  {self.name}  (n={self.n})")
@@ -59,9 +60,16 @@ class Scorecard:
         print(f"    r-squared      : {self.r2:.1f}%")
         print(f"    within 20%/$40 : {self.hit_rate:.1f}%")
 
+        if self.records:
+            # MAE is blind to direction. A model that is $80 high half the time
+            # and $80 low the other half scores the same as one that is
+            # uniformly $80 low - but the two need completely different fixes.
+            signed = [r["guess"] - r["truth"] for r in self.records]
+            under = sum(1 for s in signed if s < 0)
+            print(f"    mean signed err: ${sum(signed) / len(signed):,.2f}")
+            print(f"    under-predicted: {100 * under / len(signed):.0f}% of items")
+
         if self.worst:
-            # MAE alone hides whether a model is broadly mediocre or mostly
-            # right with a few disasters. These rows tell them apart.
             print("\n    worst misses")
             for row in self.worst:
                 print(
@@ -124,6 +132,7 @@ def score(
         hit_rate=100 * hits / len(sample),
         ran_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         worst=worst,
+        records=records,
     )
     card.show()
     card.save()
